@@ -28,6 +28,35 @@ http://localhost:3000
 
 ---
 
+## เปิดออนไลน์ผ่าน GitHub (ไม่ต้องรันบนเครื่องตัวเอง)
+
+### วิธีที่แนะนำ: Vercel (ฟรี, เหมาะกับ Next.js)
+1. Push โค้ดขึ้น GitHub repo ของคุณ
+2. เข้า https://vercel.com แล้วกด **Continue with GitHub**
+3. กด **Add New... → Project**
+4. เลือก repo นี้ แล้วกด **Deploy**
+5. รอ 1-2 นาที จะได้ URL ออนไลน์ เช่น:
+   - `https://your-project.vercel.app`
+
+> หลังจากนี้ทุกครั้งที่ push เข้า branch หลัก Vercel จะ deploy ให้อัตโนมัติ
+
+### ทางเลือก 2: Netlify
+1. เข้า https://app.netlify.com
+2. เลือก **Add new site → Import an existing project → GitHub**
+3. เลือก repo
+4. Build command: `npm run build`
+5. Publish directory: `.next`
+
+> หมายเหตุ: Next.js บน Netlify อาจต้องใช้ plugin/runtime เพิ่มตาม wizard ของ Netlify
+
+### ทางเลือก 3: CodeSandbox (เร็วสุดสำหรับ preview)
+1. เข้า https://codesandbox.io
+2. เลือก **Import from GitHub**
+3. ใส่ URL repo
+4. รอระบบติดตั้ง แล้วเปิด Preview URL ได้ทันที
+
+---
+
 ## วิธีปกติ (ทีละขั้น)
 
 ```bash
