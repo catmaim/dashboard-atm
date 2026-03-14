@@ -1,4 +1,7 @@
-import { MapPin, Radar } from 'lucide-react';
+'use client';
+
+import { useMemo, useState } from 'react';
+import { MapPin, Radar, Search } from 'lucide-react';
 import type { DashboardRecord } from '@/lib/googleSheets';
 
 type AtmPoint = {
@@ -7,13 +10,17 @@ type AtmPoint = {
   x: number;
   y: number;
   status: 'normal' | 'warning';
+  source: 'coords' | 'estimated';
 };
 
 type AtmMapProps = {
   atmRows: DashboardRecord[];
 };
 
-const normalizeKey = (key: string): string => key.toLowerCase().replace(/[^a-z0-9]/g, '');
+type StatusFilter = 'all' | 'normal' | 'warning';
+type SourceFilter = 'all' | 'coords' | 'estimated';
+
+const normalizeKey = (key: string): string => key.toLowerCase().replace(/[^a-z0-9ก-๙]/g, '');
 
 const findValueByAliases = (row: DashboardRecord, aliases: string[]): string | number | null => {
   const entries = Object.entries(row);
@@ -34,33 +41,33 @@ const toNumber = (value: string | number | null): number | null => {
   return null;
 };
 
-const hashText = (text: string): number => {
-  let hash = 0;
+const createEstimatedPoint = (index: number, total: number): { x: number; y: number } => {
+  const goldenAngle = 137.508;
+  const angle = ((index * goldenAngle) * Math.PI) / 180;
+  const radius = Math.sqrt((index + 0.5) / Math.max(1, total));
 
-  for (let i = 0; i < text.length; i += 1) {
-    hash = (hash * 31 + text.charCodeAt(i)) >>> 0;
-  }
+  const cx = 50;
+  const cy = 54;
+  const maxR = 38;
 
-  return hash;
-};
+  const x = cx + Math.cos(angle) * radius * maxR;
+  const y = cy + Math.sin(angle) * radius * maxR * 0.72;
 
-const createFallbackPoint = (row: DashboardRecord, index: number): { x: number; y: number } => {
-  const seed = JSON.stringify(row) || `${index}`;
-  const hash = hashText(seed);
-
-  const x = 8 + (hash % 84);
-  const y = 12 + ((hash >> 8) % 76);
-
-  return { x, y };
+  return {
+    x: Math.min(96, Math.max(4, x)),
+    y: Math.min(94, Math.max(8, y)),
+  };
 };
 
 const toMapPoints = (rows: DashboardRecord[]): AtmPoint[] => {
-  const latAliases = ['lat', 'latitude', 'y', 'coordlat'];
-  const lngAliases = ['lng', 'lon', 'long', 'longitude', 'x', 'coordlng'];
+  const latAliases = ['lat', 'latitude', 'y', 'coordlat', 'ละติจูด'];
+  const lngAliases = ['lng', 'lon', 'long', 'longitude', 'x', 'coordlng', 'ลองจิจูด'];
   const nameAliases = ['name', 'atmname', 'atm', 'branchname', 'location', 'จุดบริการ', 'ชื่อสาขา'];
   const statusAliases = ['status', 'state', 'health', 'สถานะ'];
 
-  const points = rows.slice(0, 120).map((row, index) => {
+  const raw = rows.slice(0, 300);
+
+  return raw.map((row, index) => {
     const lat = toNumber(findValueByAliases(row, latAliases));
     const lng = toNumber(findValueByAliases(row, lngAliases));
     const nameRaw = findValueByAliases(row, nameAliases);
@@ -82,38 +89,97 @@ const toMapPoints = (rows: DashboardRecord[]): AtmPoint[] => {
         x: Math.min(95, Math.max(5, x)),
         y: Math.min(95, Math.max(5, y)),
         status,
+        source: 'coords',
       };
     }
 
-    const fallback = createFallbackPoint(row, index);
+    const estimated = createEstimatedPoint(index, raw.length);
 
     return {
       id: `${name}-${index}`,
       name,
-      x: fallback.x,
-      y: fallback.y,
+      x: estimated.x,
+      y: estimated.y,
       status,
+      source: 'estimated',
     };
   });
-
-  return points;
 };
 
 export function AtmMap({ atmRows }: AtmMapProps) {
-  const points = toMapPoints(atmRows);
-  const warningCount = points.filter((point) => point.status === 'warning').length;
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [sourceFilter, setSourceFilter] = useState<SourceFilter>('all');
+  const [query, setQuery] = useState('');
+
+  const points = useMemo(() => toMapPoints(atmRows), [atmRows]);
+
+  const filteredPoints = useMemo(
+    () =>
+      points.filter((point) => {
+        const statusOk = statusFilter === 'all' ? true : point.status === statusFilter;
+        const sourceOk = sourceFilter === 'all' ? true : point.source === sourceFilter;
+        const queryOk = query.trim().length === 0 ? true : point.name.toLowerCase().includes(query.toLowerCase().trim());
+
+        return statusOk && sourceOk && queryOk;
+      }),
+    [points, query, sourceFilter, statusFilter],
+  );
+
+  const warningCount = filteredPoints.filter((point) => point.status === 'warning').length;
+  const coordCount = filteredPoints.filter((point) => point.source === 'coords').length;
 
   return (
     <section className="card p-5">
-      <div className="mb-4 flex items-center justify-between gap-3">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-lg font-semibold">ATM Location Pulse Map</h2>
-          <p className="text-xs text-slate-400">แผนที่จุดกดเงินพร้อม animation เพื่อดูการกระจายตัวและสถานะโดยรวม</p>
+          <p className="text-xs text-slate-400">แผนที่จุดกดเงินพร้อม animation และ filter เพื่อดูสถานะ/จุดที่ต้องติดตาม</p>
         </div>
         <div className="inline-flex items-center gap-2 rounded-full border border-cyan-400/30 bg-cyan-500/10 px-3 py-1 text-xs text-cyan-200">
           <Radar className="h-4 w-4" />
-          {points.length.toLocaleString('th-TH')} points
+          {filteredPoints.length.toLocaleString('th-TH')} points
         </div>
+      </div>
+
+      <div className="mb-4 grid gap-3 rounded-xl border border-slate-700/70 bg-slate-900/50 p-3 md:grid-cols-3">
+        <label className="space-y-1">
+          <span className="text-xs text-slate-400">ค้นหาจุด ATM</span>
+          <span className="relative block">
+            <Search className="pointer-events-none absolute left-2 top-2.5 h-4 w-4 text-slate-400" />
+            <input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="พิมพ์ชื่อสาขา/ATM"
+              className="w-full rounded-lg border border-slate-700 bg-slate-950/70 py-2 pl-8 pr-3 text-sm text-slate-100 outline-none ring-cyan-500/50 transition focus:ring"
+            />
+          </span>
+        </label>
+
+        <label className="space-y-1">
+          <span className="text-xs text-slate-400">สถานะ</span>
+          <select
+            value={statusFilter}
+            onChange={(event) => setStatusFilter(event.target.value as StatusFilter)}
+            className="w-full rounded-lg border border-slate-700 bg-slate-950/70 px-3 py-2 text-sm text-slate-100 outline-none ring-cyan-500/50 transition focus:ring"
+          >
+            <option value="all">ทั้งหมด</option>
+            <option value="normal">Normal</option>
+            <option value="warning">Warning</option>
+          </select>
+        </label>
+
+        <label className="space-y-1">
+          <span className="text-xs text-slate-400">แหล่งพิกัด</span>
+          <select
+            value={sourceFilter}
+            onChange={(event) => setSourceFilter(event.target.value as SourceFilter)}
+            className="w-full rounded-lg border border-slate-700 bg-slate-950/70 px-3 py-2 text-sm text-slate-100 outline-none ring-cyan-500/50 transition focus:ring"
+          >
+            <option value="all">ทั้งหมด</option>
+            <option value="coords">มีพิกัดจริง (lat/lng)</option>
+            <option value="estimated">พิกัดประมาณการ</option>
+          </select>
+        </label>
       </div>
 
       <div className="map-stage relative overflow-hidden rounded-2xl border border-slate-700/70 bg-slate-900/70 p-2">
@@ -126,8 +192,9 @@ export function AtmMap({ atmRows }: AtmMapProps) {
           </defs>
 
           <rect x="0" y="0" width="100" height="100" fill="url(#mapGlow)" />
+          <path d="M4 58 C20 45, 34 42, 48 44 C58 46, 69 52, 97 66" className="map-ridge" />
 
-          {points.map((point, index) => (
+          {filteredPoints.map((point, index) => (
             <g key={point.id}>
               <circle
                 cx={point.x}
@@ -149,10 +216,10 @@ export function AtmMap({ atmRows }: AtmMapProps) {
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(14,165,233,0.18),transparent_36%),radial-gradient(circle_at_78%_68%,rgba(34,197,94,0.14),transparent_32%)]" />
       </div>
 
-      <div className="mt-4 grid gap-3 text-sm text-slate-300 md:grid-cols-3">
+      <div className="mt-4 grid gap-3 text-sm text-slate-300 md:grid-cols-4">
         <div className="rounded-xl border border-slate-700/70 bg-slate-900/60 p-3">
           <p className="text-xs text-slate-400">Total ATM Points</p>
-          <p className="mt-1 text-xl font-semibold text-cyan-200">{points.length.toLocaleString('th-TH')}</p>
+          <p className="mt-1 text-xl font-semibold text-cyan-200">{filteredPoints.length.toLocaleString('th-TH')}</p>
         </div>
         <div className="rounded-xl border border-slate-700/70 bg-slate-900/60 p-3">
           <p className="text-xs text-slate-400">Warning Signals</p>
@@ -161,14 +228,18 @@ export function AtmMap({ atmRows }: AtmMapProps) {
         <div className="rounded-xl border border-slate-700/70 bg-slate-900/60 p-3">
           <p className="text-xs text-slate-400">Normal Signals</p>
           <p className="mt-1 text-xl font-semibold text-emerald-200">
-            {(points.length - warningCount).toLocaleString('th-TH')}
+            {(filteredPoints.length - warningCount).toLocaleString('th-TH')}
           </p>
+        </div>
+        <div className="rounded-xl border border-slate-700/70 bg-slate-900/60 p-3">
+          <p className="text-xs text-slate-400">Points with Real Coordinates</p>
+          <p className="mt-1 text-xl font-semibold text-sky-200">{coordCount.toLocaleString('th-TH')}</p>
         </div>
       </div>
 
       <div className="mt-3 inline-flex items-center gap-2 text-xs text-slate-400">
         <MapPin className="h-3.5 w-3.5" />
-        ถ้าไม่มีพิกัด lat/lng ในชีต ระบบจะกระจายจุดแบบอัตโนมัติเพื่อให้เห็นภาพรวมบนแผนที่ได้ทันที
+        ถ้าไม่มีพิกัด lat/lng ในชีต ระบบจะแสดงพิกัดประมาณการเพื่อให้เห็นภาพรวมและใช้ filter ตรวจสอบได้สะดวก
       </div>
     </section>
   );

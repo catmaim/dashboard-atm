@@ -44,3 +44,10 @@ body {
     opacity: 0;
   }
 }
+
+.map-ridge {
+  fill: none;
+  stroke: rgba(56, 189, 248, 0.28);
+  stroke-width: 0.45;
+  stroke-dasharray: 1.2 1.4;
+}
