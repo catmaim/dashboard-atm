@@ -1,6 +1,7 @@
 import { AlertTriangle, Building2, CalendarClock, Landmark, MonitorSmartphone } from 'lucide-react';
 import { DashboardCard } from '@/components/DashboardCard';
 import { DataTable } from '@/components/DataTable';
+import { AtmMap } from '@/components/AtmMap';
 import { loadDashboardData, type DashboardRecord } from '@/lib/googleSheets';
 
 export const dynamic = 'force-dynamic';
@@ -84,6 +85,10 @@ export default async function HomePage() {
             description="ค่าเฉลี่ยตัวเลขจากข้อมูล ATM"
             icon={<MonitorSmartphone className="h-5 w-5" />}
           />
+        </section>
+
+        <section>
+          <AtmMap atmRows={atmData} />
         </section>
 
         <section className="grid gap-6 xl:grid-cols-2">
