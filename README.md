@@ -80,3 +80,18 @@ npm install
 ```bash
 npm run open:easy
 ```
+
+
+## Deploy Vercel แล้วขึ้น 404: NOT_FOUND แก้ตามนี้
+
+1. เช็กว่าโค้ดถูก push ขึ้น GitHub แล้วจริง:
+   ```bash
+   git remote -v
+   git push -u origin work
+   ```
+2. ใน Vercel ให้เลือก **Project Root = /** (root repo) ไม่ใช่โฟลเดอร์ย่อย
+3. ใน Vercel Settings → Git ให้ตั้ง Production Branch ให้ตรงกับ branch ที่ deploy (เช่น `work` หรือ `main`)
+4. กด Redeploy ล่าสุดอีกครั้ง
+5. ถ้ายัง 404 ให้สร้าง Project ใหม่บน Vercel แล้วเลือก repo เดิมใหม่
+
+ไฟล์ `vercel.json` ถูกเพิ่มให้ Vercel detect เป็น Next.js โดยตรงแล้ว
