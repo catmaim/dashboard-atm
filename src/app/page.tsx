@@ -1,7 +1,9 @@
-import { Building2, CalendarClock, Landmark, MonitorSmartphone } from 'lucide-react';
+import { AlertTriangle, Building2, CalendarClock, Landmark, MonitorSmartphone } from 'lucide-react';
 import { DashboardCard } from '@/components/DashboardCard';
 import { DataTable } from '@/components/DataTable';
 import { loadDashboardData, type DashboardRecord } from '@/lib/googleSheets';
+
+export const dynamic = 'force-dynamic';
 
 const getNumericFields = (rows: DashboardRecord[]): number[] => {
   return rows.flatMap((row) =>
@@ -16,7 +18,17 @@ const formatCompact = (value: number): string =>
   }).format(value);
 
 export default async function HomePage() {
-  const { branchData, atmData } = await loadDashboardData();
+  let branchData: DashboardRecord[] = [];
+  let atmData: DashboardRecord[] = [];
+  let loadError: string | null = null;
+
+  try {
+    const result = await loadDashboardData();
+    branchData = result.branchData;
+    atmData = result.atmData;
+  } catch {
+    loadError = 'ไม่สามารถโหลดข้อมูลจาก Google Sheets ได้ชั่วคราว แต่หน้าแดชบอร์ดยังเปิดใช้งานได้';
+  }
 
   const branchNumbers = getNumericFields(branchData);
   const atmNumbers = getNumericFields(atmData);
@@ -39,6 +51,13 @@ export default async function HomePage() {
             Refreshed every 5 minutes
           </div>
         </header>
+
+        {loadError ? (
+          <section className="card flex items-center gap-3 border-amber-400/30 bg-amber-500/10 p-4 text-amber-100">
+            <AlertTriangle className="h-5 w-5" />
+            <p className="text-sm">{loadError}</p>
+          </section>
+        ) : null}
 
         <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <DashboardCard
