@@ -81,17 +81,49 @@ npm install
 npm run open:easy
 ```
 
+---
 
-## Deploy Vercel แล้วขึ้น 404: NOT_FOUND แก้ตามนี้
+## แก้ปัญหา `git push` ไม่ได้ (CONNECT tunnel failed / 403)
 
-1. เช็กว่าโค้ดถูก push ขึ้น GitHub แล้วจริง:
+### วิธี A (แนะนำ): ใช้ Personal Access Token (HTTPS)
+1. ไปสร้าง Token ที่ GitHub (Scopes: `repo`)
+2. ตั้ง remote:
    ```bash
-   git remote -v
+   git remote set-url origin https://github.com/catmaim/dashboard-atm.git
+   ```
+3. push:
+   ```bash
    git push -u origin work
    ```
-2. ใน Vercel ให้เลือก **Project Root = /** (root repo) ไม่ใช่โฟลเดอร์ย่อย
-3. ใน Vercel Settings → Git ให้ตั้ง Production Branch ให้ตรงกับ branch ที่ deploy (เช่น `work` หรือ `main`)
-4. กด Redeploy ล่าสุดอีกครั้ง
-5. ถ้ายัง 404 ให้สร้าง Project ใหม่บน Vercel แล้วเลือก repo เดิมใหม่
+4. ตอนถามรหัสผ่าน ให้ใส่ **Token** แทน password
 
-ไฟล์ `vercel.json` ถูกเพิ่มให้ Vercel detect เป็น Next.js โดยตรงแล้ว
+### วิธี B: ใช้ SSH (มักผ่าน proxy ได้ดีกว่า)
+```bash
+ssh-keygen -t ed25519 -C "you@example.com"
+cat ~/.ssh/id_ed25519.pub
+```
+- เอา public key ไปเพิ่มใน GitHub → Settings → SSH and GPG keys
+- เปลี่ยน remote เป็น SSH และ push:
+```bash
+git remote set-url origin git@github.com:catmaim/dashboard-atm.git
+git push -u origin work
+```
+
+### วิธี C: ตั้งค่า proxy ให้ git ถ้าองค์กรบังคับ
+```bash
+git config --global http.proxy http://<proxy-host>:<port>
+git config --global https.proxy http://<proxy-host>:<port>
+```
+
+---
+
+## Deploy Vercel แล้วขึ้น `404: NOT_FOUND` แก้ตามนี้
+
+1. ต้องมีโค้ดบน GitHub ก่อน (push สำเร็จ)
+2. ใน Vercel ให้เลือก **Project Root = /**
+3. ตั้ง **Framework Preset = Next.js**
+4. ตั้ง **Production Branch** ให้ตรงกับ branch ที่ deploy (`work` หรือ `main`)
+5. กด **Redeploy** ล่าสุด
+6. ถ้ายังไม่ได้ ให้ลบโปรเจกต์เดิมแล้วสร้างใหม่จาก repo เดิม
+
+มีไฟล์ `vercel.json` ระบุ framework เป็น Next.js ไว้แล้ว
